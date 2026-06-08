@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>05-jpa-n-plus-one</artifactId>
+    <name>05-jpa-n-plus-one</name>
+    <description>
+        The flagship JPA POC: demonstrate the N+1 problem and five side-by-side
+        fixes (JOIN FETCH, EntityGraph, @BatchSize, DTO projection, L2 cache).
+        Every endpoint surfaces the actual SQL count so the comparison is concrete.
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints expose each variant + the headline /compare/all table. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- The entire point of this POC: Hibernate-as-it-is-actually-used. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Spring's @Cacheable infra is *not* what L2 needs, but enabling cache
+             auto-config wires up the JCache bits Hibernate wants. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- Ehcache 3 acts as the JCache (JSR-107) provider for Hibernate L2. -->
+        <dependency>
+            <groupId>org.ehcache</groupId>
+            <artifactId>ehcache</artifactId>
+            <classifier>jakarta</classifier>
+            <version>3.10.8</version>
+        </dependency>
+
+        <!-- Hibernate's bridge to JCache regions (turns @Cache(...) into real caches). -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-jcache</artifactId>
+        </dependency>
+
+        <!-- Postgres 16 — schema m05_n_plus_one is created in docker/postgres-init.sql. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- p6spy logs the real SQL after Hibernate prepares it. Makes the N+1
+             stream painfully visible in the console for the /demo/naive call. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- SqlCounter + Timing helpers — the SQL count number we return is from here. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,49 @@
+spring:
+  application:
+    # Module tag so `docker logs` / kibana queries can grep one module at a time.
+    name: m09-querydsl-vs-jpql-vs-criteria
+
+  datasource:
+    # currentSchema= isolates this POC's tables from the other 9 modules.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m09_querydsl
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m09-pool
+
+  jpa:
+    # The POC owns these tables — drop on shutdown, rebuild on start. No Flyway needed.
+    hibernate:
+      ddl-auto: create-drop
+    # OSIV off so each query owns its session boundary — the SQL we capture in
+    # the response is exactly what the controller method triggered, nothing else.
+    open-in-view: false
+    properties:
+      hibernate:
+        # Pretty-print SQL in logs so the side-by-side comparison reads cleanly.
+        format_sql: true
+        generate_statistics: true
+        jdbc:
+          batch_size: 50
+
+# p6spy intercepts JDBC and emits one log line per executed statement. The
+# SqlCaptureAppender attaches to that logger; controllers read back the last
+# line to surface "sqlGenerated" in the JSON response (so callers can see the
+# exact SQL each implementation produced — the whole point of the POC).
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: false       # single-line keeps the JSON-embedded SQL readable.
+      logging: slf4j
+
+server:
+  port: 8209
+
+logging:
+  level:
+    com.claude.dbpoc.m09: INFO
+    # p6spy emits at INFO — the SqlCaptureAppender below taps this category.
+    p6spy: INFO

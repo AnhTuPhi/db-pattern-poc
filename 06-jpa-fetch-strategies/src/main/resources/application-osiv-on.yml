@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------------------
+# Profile: osiv-on  (Open-Session-In-View ENABLED)
+#
+# Run with:  --spring.profiles.active=osiv-on
+#
+# WHY THIS EXISTS:
+#   The default config (application.yml) sets open-in-view=false, which is the
+#   correct production default. This profile flips it ON so you can SEE the
+#   trade-off in the LIE demo:
+#
+#     - Pros: no LazyInitializationException when getters are called from the
+#             controller / view layer after the @Transactional method returned.
+#     - Cons: every lazy getter triggers a NEW SELECT against the DB while the
+#             HTTP response is being serialised. This means:
+#               * extra round-trips you didn't plan for (N+1 in the view layer)
+#               * no clear "this is my transaction boundary" — the session
+#                 lives for the whole request, so reasoning about commits is
+#                 fuzzy
+#               * harder to spot bugs in code review
+#
+#   The "fix" OSIV provides is therefore not really a fix — it papers over
+#   bad fetch design. The real fixes are JOIN FETCH, @EntityGraph, or DTO
+#   projection (see /lie/with-join-fetch and /lie/with-dto endpoints).
+# ---------------------------------------------------------------------------
+
+spring:
+  jpa:
+    open-in-view: true

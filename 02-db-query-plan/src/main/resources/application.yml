@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Module 02 — db-query-plan
+#
+# Two datasources:
+#   pg     : primary, always on (schema m02_query_plan)
+#   oracle : optional, gated by oracle.enabled (default false)
+#
+# We disable Spring Boot's auto datasource config because we wire two Hikari
+# pools by hand in DataSourceConfig — Boot's auto-config only creates one.
+#
+# JPA is explicitly absent: this module is about reading raw EXPLAIN output,
+# so we use plain JdbcTemplate (one per datasource) for full control over SQL.
+# ---------------------------------------------------------------------------
+
+server:
+  port: 8202
+
+spring:
+  application:
+    name: m02-db-query-plan
+
+  # Auto datasource config would clash with our two-pool setup; turn it off.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+# Our own datasource block — read by DataSourceConfig, not Spring Boot.
+datasources:
+  pg:
+    jdbc-url: jdbc:postgresql://localhost:5432/appdb
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    schema: m02_query_plan
+    # Pool sized small on purpose: this is a teaching POC, not a load test.
+    maximum-pool-size: 5
+    minimum-idle: 1
+
+  oracle:
+    jdbc-url: jdbc:oracle:thin:@localhost:1521/FREEPDB1
+    username: appuser
+    password: AppUser123
+    driver-class-name: oracle.jdbc.OracleDriver
+    schema: APPUSER
+    maximum-pool-size: 5
+    minimum-idle: 1
+
+oracle:
+  # Default OFF so the module boots cleanly with only Postgres up.
+  # Flip to true (or pass --oracle.enabled=true) once you've started Oracle.
+  enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+logging:
+  level:
+    com.claude.dbpoc.m02: INFO
+    org.springframework.jdbc.core.JdbcTemplate: DEBUG

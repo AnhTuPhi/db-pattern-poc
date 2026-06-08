@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------------------
+# Module 07 — jpa-flush-and-cascade
+#
+# Postgres-only. The schema m07_flush_cascade is pre-created in
+# docker/postgres-init.sql; the JDBC URL pins search_path to it so the
+# Bad/Good parent + Customer/Account/Transaction tables coexist with the
+# other module schemas without collisions.
+#
+# JPA ddl-auto: create-drop — the POC owns these tables. Boot it, hit the
+# endpoints, observe the cascade/flush behaviour, shut it down. No Flyway.
+# ---------------------------------------------------------------------------
+
+server:
+  port: 8207
+
+spring:
+  application:
+    name: m07-jpa-flush-and-cascade
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m07_flush_cascade
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m07-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    # OSIV would keep a session open beyond @Transactional and quietly hide
+    # the flush-on-query story we're demonstrating. Kill it.
+    open-in-view: false
+    properties:
+      hibernate:
+        # Pretty-print SQL so the order (INSERT-then-SELECT vs SELECT-then-INSERT)
+        # is human-readable when reading the p6spy log.
+        format_sql: true
+        # SessionFactory.getStatistics() — second source of truth alongside SqlCounter.
+        generate_statistics: true
+        jdbc:
+          # Modest batch so DELETE-cascade fan-out stays visible per row.
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        # Default is FlushMode.AUTO — keep it; we override per-test in FlushDemoController.
+
+# p6spy decorates the DataSource; logs every statement after Hibernate
+# prepares it. The cascade-delete fan-out is shocking in the console.
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+logging:
+  level:
+    com.claude.dbpoc.m07: INFO
+    # Statistics line per session — confirms the SQL count from a 2nd angle.
+    org.hibernate.stat: INFO
+    org.hibernate.SQL: INFO
+    p6spy: INFO

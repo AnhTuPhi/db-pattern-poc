@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: poc-modules
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - "host.docker.internal:8201"  # 01-db-indexing
+          - "host.docker.internal:8202"  # 02-db-query-plan
+          - "host.docker.internal:8203"  # 03-db-slow-query-hunting
+          - "host.docker.internal:8204"  # 04-db-cardinality-estimation
+          - "host.docker.internal:8205"  # 05-jpa-n-plus-one
+          - "host.docker.internal:8206"  # 06-jpa-fetch-strategies
+          - "host.docker.internal:8207"  # 07-jpa-flush-and-cascade
+          - "host.docker.internal:8208"  # 08-jpa-batch-insert-update
+          - "host.docker.internal:8209"  # 09-querydsl-vs-jpql-vs-criteria
+          - "host.docker.internal:8210"  # 10-db-isolation-levels

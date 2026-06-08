@@ -1,0 +1,94 @@
+spring:
+  application:
+    # Module tag so log/grep can isolate this module's output.
+    name: m08-jpa-batch-insert-update
+
+  # Default profile is Postgres. Oracle profile is below.
+  profiles:
+    active: postgres
+
+  jpa:
+    # POC owns its tables — create-drop is fine and means we can change the
+    # schema (id strategy, etc) without writing migrations.
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        generate_statistics: true
+        jdbc:
+          # === The headline batching knob ===
+          # Without this, Hibernate sends every insert as a separate
+          # PreparedStatement.executeUpdate() — no batching at all.
+          batch_size: 50
+          # Allow @Version entities to batch. Off by default, which silently
+          # kills batching for any entity that uses optimistic locking.
+          batch_versioned_data: true
+        # Without these, each new "kind" of statement (UPDATE then INSERT then
+        # UPDATE) starts a fresh batch — you lose most of the batching win.
+        order_inserts: true
+        order_updates: true
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8208
+
+logging:
+  level:
+    com.claude.dbpoc.m08: INFO
+    # Hibernate stats line per session — gives a 2nd source of truth for the
+    # statement count we publish in the JSON.
+    org.hibernate.stat: INFO
+    # Prints "Executing batch size: N" — proves the wire-level batches.
+    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: DEBUG
+    p6spy: INFO
+
+---
+# ====== POSTGRES PROFILE (default) ======
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    # currentSchema= isolates this module's tables.
+    # reWriteBatchedInserts=true is THE Postgres-specific knob: PgJDBC will
+    # rewrite N batched single-row INSERTs into one multi-row INSERT, which
+    # collapses N round trips into 1. Without it, "batched" inserts are still
+    # one wire packet per row — just sent without waiting for the ack.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m08_batch_insert&reWriteBatchedInserts=true
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m08-pool
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+---
+# ====== ORACLE PROFILE ======
+# Run with: -Dspring-boot.run.profiles=oracle
+# Sequence allocationSize + CACHE story is the headliner here. On RAC, NOCACHE
+# means every insert chats with the global sequence coordinator — visible
+# round-trip cost. CACHE 1000 amortises that 1000:1.
+spring:
+  config:
+    activate:
+      on-profile: oracle
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521/FREEPDB1
+    username: appuser
+    password: AppUser123
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m08-pool-oracle
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect

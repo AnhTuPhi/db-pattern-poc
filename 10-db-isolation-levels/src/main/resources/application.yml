@@ -1,0 +1,60 @@
+spring:
+  application:
+    # Module tag so log/grep can isolate this module's output.
+    name: m10-db-isolation-levels
+
+  datasource:
+    # currentSchema= isolates this module's tables from the other modules
+    # sharing the same Postgres instance.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m10_isolation
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # The whole point of this POC is multi-threaded demos. With pool=10 and
+      # two transactions per demo + REQUIRES_NEW propagation, you can starve
+      # the pool when a test holds locks. 20 leaves comfortable headroom.
+      maximum-pool-size: 20
+      pool-name: m10-pool
+
+  jpa:
+    # POC owns its tables — wipe and recreate on each boot so the lost-update
+    # demos always start from a known $100/$200 balance.
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+        # Default isolation for every connection. Each demo OVERRIDES this via
+        # TransactionTemplate#setIsolationLevel so it can run the same code
+        # under different isolation levels. The value 2 = READ_COMMITTED:
+        #   1 = READ_UNCOMMITTED  (Postgres silently upgrades to RC)
+        #   2 = READ_COMMITTED    (Postgres default — and the SQL spec default)
+        #   4 = REPEATABLE_READ   (Postgres = snapshot isolation, stronger than spec)
+        #   8 = SERIALIZABLE      (Postgres = SSI — Serializable Snapshot Isolation)
+        connection:
+          isolation: 2
+
+decorator:
+  datasource:
+    p6spy:
+      # Every SQL statement (incl. SET TRANSACTION ISOLATION LEVEL and the
+      # FOR UPDATE clause) is logged. Crucial for "did the driver actually
+      # send what I asked for?" verification.
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8210
+
+logging:
+  level:
+    com.claude.dbpoc.m10: INFO
+    # Hibernate logs the isolation level it sets on each connection. Useful
+    # to confirm that REPEATABLE_READ really did get sent before the work.
+    org.hibernate.resource.transaction: INFO
+    org.hibernate.engine.transaction: INFO
+    p6spy: INFO

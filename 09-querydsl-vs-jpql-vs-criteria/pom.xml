@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>09-querydsl-vs-jpql-vs-criteria</artifactId>
+    <name>09-querydsl-vs-jpql-vs-criteria</name>
+    <description>
+        Four implementations of one non-trivial dynamic search query (JPQL,
+        Criteria API, QueryDSL, native SQL). Same input, same output, same SQL —
+        compare lines-of-code, type-safety, refactor risk, and the SQL Hibernate
+        emits for each. The result: a defensible house-rule for "which builder
+        do we reach for, when".
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints expose each variant + the headline /compare table. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Hibernate behind EntityManager. All four implementations call into it. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Postgres 16 — schema m09_querydsl is created in docker/postgres-init.sql. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- QueryDSL runtime: JPAQueryFactory, BooleanBuilder, fluent API. -->
+        <dependency>
+            <groupId>com.querydsl</groupId>
+            <artifactId>querydsl-jpa</artifactId>
+            <classifier>jakarta</classifier>
+        </dependency>
+
+        <!-- QueryDSL APT: scans @Entity classes and generates QXxx companions
+             into target/generated-sources/annotations. 'provided' because the
+             compiler only needs it at build time. -->
+        <dependency>
+            <groupId>com.querydsl</groupId>
+            <artifactId>querydsl-apt</artifactId>
+            <classifier>jakarta</classifier>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- jakarta.persistence-api on the *processor* path so APT sees
+             @Entity / @MappedSuperclass without leaking the API jar twice. -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+        </dependency>
+
+        <!-- p6spy logs the actual prepared statement (with bound params) — we
+             read its log line back to surface "sqlGenerated" in the response. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Timing helper — every endpoint returns elapsedMs from Timing.timed. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+                QueryDSL APT setup. Without this block, the QOrder / QCustomer
+                classes never get generated and the QuerydslOrderSearch.java file
+                will not compile in the IDE.
+
+                WHY annotationProcessorPaths (vs <dependency> with provided scope)?
+                  - The 'provided' dep above is what your *application* code
+                    needs at compile time (so the @Generated Q-classes resolve).
+                  - But the *compiler* itself needs the processor jar on a
+                    separate classpath so APT can discover the
+                    JPAAnnotationProcessor and invoke it during the
+                    compile phase. annotationProcessorPaths is exactly that.
+                  - Listing jakarta.persistence-api here too means the
+                    processor's class loader can resolve @Entity, @Id, etc.
+                    when it inspects your sources.
+
+                Outcome: `mvn -pl 09-querydsl-vs-jpql-vs-criteria compile`
+                drops Q-classes into target/generated-sources/annotations/com/...
+                IDEs (IntelliJ, VSCode) recognise that as a source root on the
+                next reimport. If you don't see Q-classes in the IDE, the fix
+                is almost always: run `mvn compile` once, then reimport.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations</generatedSourcesDirectory>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.querydsl</groupId>
+                            <artifactId>querydsl-apt</artifactId>
+                            <version>${querydsl.version}</version>
+                            <classifier>jakarta</classifier>
+                        </path>
+                        <path>
+                            <groupId>jakarta.persistence</groupId>
+                            <artifactId>jakarta.persistence-api</artifactId>
+                            <version>3.1.0</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <annotationProcessors>
+                        <!--
+                            JPAAnnotationProcessor walks every @Entity and
+                            emits a Q-class. We list it explicitly so the build
+                            does not depend on processor auto-discovery — that
+                            order is platform-dependent and silently skips
+                            QueryDSL if Lombok wins the race.
+                        -->
+                        <processor>com.querydsl.apt.jpa.JPAAnnotationProcessor</processor>
+                        <processor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</processor>
+                    </annotationProcessors>
+                </configuration>
+            </plugin>
+
+            <!--
+                build-helper hooks the generated Q-class folder back into the
+                Maven 'compile' source roots so subsequent compile invocations
+                (and downstream goals like spring-boot:run) actually compile
+                the Q-classes. Without this, IntelliJ would see them but
+                command-line `mvn package` would not.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/annotations</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

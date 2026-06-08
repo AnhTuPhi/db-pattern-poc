@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>07-jpa-flush-and-cascade</artifactId>
+    <name>07-jpa-flush-and-cascade</name>
+    <description>
+        The "why did saving X also delete Y?" POC. Demonstrates the surprise
+        side-effects of cascade=ALL, orphanRemoval=true, the default AUTO
+        flush mode firing at unexpected moments, and the O(session) cost of
+        dirty-checking. Every endpoint returns the observable evidence
+        (SQL count, what was deleted, elapsed time) so each trap is concrete.
+    </description>
+
+    <dependencies>
+        <!-- REST surface for each cascade / flush / dirty-check demo. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- The whole point: Hibernate's persistence-context semantics in real apps. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Postgres 16 — schema m07_flush_cascade is pre-created in docker/postgres-init.sql. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- p6spy logs each prepared statement so the "INSERT before SELECT" order
+             in the auto-flush demo is visible in the console, not just our counter. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- SqlCounter + Timing — every endpoint returns these numbers as evidence. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

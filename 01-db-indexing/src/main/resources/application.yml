@@ -1,0 +1,32 @@
+spring:
+  application:
+    # Tag every log line with the module name so `docker logs` is grep-able when
+    # several POC modules run side-by-side.
+    name: m01-db-indexing
+
+  datasource:
+    # currentSchema= keeps every CREATE/SELECT scoped to this module's schema
+    # (defined in docker/postgres-init.sql) so other modules can't collide.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m01_indexing
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Small pool: this POC is single-user; large pools just hide bench noise.
+      maximum-pool-size: 10
+      pool-name: m01-pool
+
+  sql:
+    init:
+      # schema.sql at startup builds the events table (indexes are added by REST calls).
+      mode: always
+      continue-on-error: false
+
+server:
+  port: 8201
+
+logging:
+  level:
+    # Show the SQL we send to Postgres but keep parameter binding quiet by default.
+    org.springframework.jdbc.core.JdbcTemplate: DEBUG
+    com.claude.dbpoc.m01: INFO

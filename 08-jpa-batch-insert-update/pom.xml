@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>08-jpa-batch-insert-update</artifactId>
+    <name>08-jpa-batch-insert-update</name>
+    <description>
+        Why JPA bulk inserts are often 50-100x slower than they should be, and
+        the exact knobs to fix it. Runs the same 10,000-row insert seven ways
+        and returns a comparison table (elapsed ms + statement count). Covers
+        both Postgres (?reWriteBatchedInserts=true) and Oracle (sequence
+        allocationSize, CACHE vs NOCACHE).
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints expose each variant + the headline /bench table. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JPA/Hibernate — the whole point of this module is JPA batching. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Plain JdbcTemplate.batchUpdate baseline — the floor we measure JPA against. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Postgres profile. Needs ?reWriteBatchedInserts=true to actually
+             batch on the wire (driver collapses N inserts into one multi-row). -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Oracle profile. This is where sequence allocationSize + CACHE matter most. -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+        </dependency>
+
+        <!-- SqlCounter + Timing helpers — every bench number comes from these. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+
+        <!-- p6spy logs the actual statements + batch boundaries so the reader
+             can SEE that "1 batch of 50" really did fire as one round trip. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Module 04 — db-cardinality-estimation
+#
+# Postgres-only. The whole module is about the planner's row estimates: Postgres
+# exposes the richest knobs (ANALYZE, default_statistics_target, CREATE
+# STATISTICS), so wiring Oracle in too would just dilute the lesson.
+#
+# Schema m04_cardinality is provisioned by docker/postgres-init.sql; we set
+# search_path via the JDBC URL so every query is implicitly scoped to it.
+#
+# JPA is deliberately absent: we want to see exactly the SQL the planner sees.
+# ---------------------------------------------------------------------------
+
+server:
+  port: 8204
+
+spring:
+  application:
+    name: m04-db-cardinality-estimation
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m04_cardinality
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      pool-name: m04-pool
+
+  sql:
+    init:
+      # schema.sql runs at startup; it's idempotent.
+      mode: always
+      continue-on-error: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+logging:
+  level:
+    com.claude.dbpoc.m04: INFO
+    # SQL-level logging is handy when reading EXPLAIN output, noisy otherwise.
+    org.springframework.jdbc.core.JdbcTemplate: INFO

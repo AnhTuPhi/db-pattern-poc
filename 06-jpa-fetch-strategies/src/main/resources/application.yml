@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Module 06 — jpa-fetch-strategies
+#
+# The module's thesis: "Fetch strategy is a property of the use case, not the
+# entity." EAGER on the entity hard-codes a join into every query that touches
+# it, and that's almost never what the caller wants.
+#
+# Postgres only — the JPA-level lessons are DB-agnostic; p6spy makes the SQL
+# visible without needing planner instrumentation.
+#
+# Notes:
+#   - open-in-view: false is the CORRECT production default. We flip it via
+#     the sibling profile application-osiv-on.yml just for the OSIV demo so
+#     you can SEE the trade-off (no LIE, but extra round-trips in the view).
+#   - ddl-auto: create-drop is fine here — the seed endpoint repopulates.
+# ---------------------------------------------------------------------------
+
+server:
+  port: 8206
+
+spring:
+  application:
+    name: m06-jpa-fetch-strategies
+
+  datasource:
+    # Schema m06_fetch_strategies is created by docker/postgres-init.sql at compose-up time.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m06_fetch_strategies
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      pool-name: m06-pool
+
+  jpa:
+    # open-in-view: false is THE correct default. With it OFF, calling a getter
+    # for a lazy association outside a @Transactional method blows up with
+    # LazyInitializationException — which is what we want, because it forces
+    # us to be explicit about fetch boundaries.
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        # Surface N+1 / unexpected SELECTs as warnings (not silent fetches).
+        generate_statistics: true
+        # Default batch size — small here because the demos want CLEAN SQL counts
+        # (no batching surprises). Module 05 covers @BatchSize properly.
+        default_batch_fetch_size: 0
+        jdbc:
+          time_zone: UTC
+
+# p6spy is the simplest way to see what Hibernate actually sent. Logs go to
+# console at INFO; toggle to DEBUG for very chatty queries.
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      logging: slf4j
+      log-format: "[p6spy] %(executionTime)ms | %(category) | conn=%(connectionId) | %(sqlSingleLine)"
+
+logging:
+  level:
+    com.claude.dbpoc.m06: INFO
+    # Hibernate SQL logger off — p6spy is enough and produces cleaner output.
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    p6spy: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

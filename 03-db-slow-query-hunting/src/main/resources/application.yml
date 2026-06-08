@@ -1,0 +1,43 @@
+spring:
+  application:
+    # Tagged so multi-module `docker logs` output stays grep-able.
+    name: m03-slow-query-hunting
+
+  # Primary datasource = Postgres. Everything in this module assumes Postgres
+  # is up; Oracle is layered in only when oracle.enabled=true.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m03_slow_query
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 12 = workload generator uses 8 threads + a little headroom for /top
+      # and /suggest calls running alongside.
+      maximum-pool-size: 12
+      pool-name: m03-pg-pool
+
+  sql:
+    init:
+      # schema-pg.sql creates tables AND seeds the ~5M row dataset, so it must
+      # be allowed to run once and then turn off. We control seeding ourselves
+      # via /seed (idempotent), so we set mode=never and call the script
+      # explicitly from SeedController on demand.
+      mode: never
+
+server:
+  port: 8203
+
+# --------------------------------------------------------------------------
+# Oracle datasource — OFF by default. Flip to true (or pass
+# --oracle.enabled=true) once the Oracle 23ai container is running.
+# --------------------------------------------------------------------------
+oracle:
+  enabled: false
+  url: jdbc:oracle:thin:@localhost:1521/FREEPDB1
+  username: appuser
+  password: AppUser123
+
+logging:
+  level:
+    org.springframework.jdbc.core.JdbcTemplate: INFO
+    com.claude.dbpoc.m03: INFO

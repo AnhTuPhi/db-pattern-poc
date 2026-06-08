@@ -1,0 +1,66 @@
+spring:
+  application:
+    # Module tag so `docker logs` / kibana queries can grep one module at a time.
+    name: m05-jpa-n-plus-one
+
+  datasource:
+    # currentSchema= isolates this POC's tables from the other 9 modules.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m05_n_plus_one
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m05-pool
+
+  jpa:
+    # The POC owns these tables — drop on shutdown, rebuild on start. No Flyway needed.
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false        # OSIV would hide the lazy-load story we're showing.
+    properties:
+      hibernate:
+        # Pretty-print SQL in logs so the N+1 stream is human-readable.
+        format_sql: true
+        # SessionFactory.getStatistics() — exposes query counts, cache hits, etc.
+        generate_statistics: true
+        # L2 cache wiring: needed for /demo/second-level-cache.
+        cache:
+          use_second_level_cache: true
+          use_query_cache: false       # we're caching entities, not query results.
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+        # JCache provider (Ehcache 3 with jakarta classifier).
+        javax:
+          cache:
+            provider: org.ehcache.jsr107.EhcacheCachingProvider
+        # Batching: lets the @BatchSize demo and inserts coalesce statements.
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        # default_batch_fetch_size left UNSET globally — the /demo/batch-size
+        # endpoint sets it programmatically per-call so the contrast is visible.
+
+# p6spy intercepts the JDBC layer and logs every executed statement. The
+# request-level SQL count comes from SqlCounter (proxying the DataSource);
+# p6spy is here for the human-readable log story.
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8205
+
+logging:
+  level:
+    com.claude.dbpoc.m05: INFO
+    # Hibernate statistics line per session — proves the SQL count from a 2nd angle.
+    org.hibernate.stat: INFO
+    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: INFO
+    # SQL itself: leave at INFO; p6spy will emit prepared statements with bound params.
+    p6spy: INFO
