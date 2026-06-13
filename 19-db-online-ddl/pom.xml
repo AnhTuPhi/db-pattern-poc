@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>19-db-online-ddl</artifactId>
+    <name>19-db-online-ddl</name>
+    <description>
+        Online DDL — the rules for changing schema without taking the table
+        offline. Demonstrates which Postgres DDL statements take which lock
+        levels, which ones are "free" (metadata-only) since PG11, and which
+        ones still require a full table rewrite. Shows the equivalent
+        tooling in other RDBMSes: pg_repack / pt-online-schema-change /
+        gh-ost / Oracle online redefinition.
+
+        The lesson: Postgres has made most DDL online by default — but you
+        still need to know the exceptions, because the ones that aren't
+        online will take your service down silently.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

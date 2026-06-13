@@ -1,0 +1,51 @@
+spring:
+  application:
+    # Module tag — lets logs/grep separate this module from siblings on the
+    # same Postgres instance.
+    name: m11-db-locking
+
+  datasource:
+    # currentSchema= keeps this module's tables in m11_locking, isolated
+    # from the other modules pointed at the same database.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m11_locking
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # SKIP LOCKED demos spawn up to 8 workers + the controller's request
+      # thread. 20 leaves headroom for the observability query running on
+      # its own connection.
+      maximum-pool-size: 20
+      pool-name: m11-pool
+
+  jpa:
+    hibernate:
+      # POC owns its tables — wipe and recreate on boot so the seed
+      # endpoints can re-establish a deterministic starting state.
+      ddl-auto: create-drop
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+decorator:
+  datasource:
+    p6spy:
+      # The whole point of this module is "which SQL did the driver
+      # actually send?" — every demo needs the FOR UPDATE / SKIP LOCKED /
+      # NOWAIT clause to be visible in the log.
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8211
+
+logging:
+  level:
+    com.claude.dbpoc.m11: INFO
+    # Hibernate lock acquisition logs at DEBUG — bump to DEBUG when
+    # debugging a "did Hibernate actually issue the FOR UPDATE?" mystery.
+    org.hibernate.resource.transaction: INFO
+    p6spy: INFO

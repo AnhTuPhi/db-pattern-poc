@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>21-db-read-replica</artifactId>
+    <name>21-db-read-replica</name>
+    <description>
+        Read replica routing — route SELECTs to a replica without breaking
+        read-your-writes. Demonstrates Spring's
+        AbstractRoutingDataSource keyed by the current
+        @Transactional(readOnly=true) flag, a deliberate replica-lag
+        scenario (read-after-write inconsistency), and the two
+        production-grade fixes: sticky-write window and primary-fallback
+        on stale-read detection.
+
+        We simulate replica behavior with TWO postgres schemas
+        (primary_schema + replica_schema) and an explicit "lag" knob so
+        the demo runs deterministically without setting up streaming
+        replication for the POC.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

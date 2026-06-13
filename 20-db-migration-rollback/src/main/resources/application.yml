@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: m20-db-migration-rollback
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m20_rollback
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      pool-name: m20-pool
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Default schema for Flyway's housekeeping table.
+    schemas: m20_rollback
+    default-schema: m20_rollback
+    # Create the schema if missing (the JDBC URL only sets currentSchema;
+    # the schema must exist for the JDBC connection to attach to it).
+    create-schemas: true
+    # In production, baselineOnMigrate=false is safer — fail loudly if
+    # the DB isn't where Flyway expects. true is for demos where we want
+    # to re-run from scratch.
+    baseline-on-migrate: true
+    baseline-version: 0
+    # validateMigrationNaming=true catches typos in V123__foo.sql etc.
+    validate-migration-naming: true
+
+server:
+  port: 8220
+
+logging:
+  level:
+    com.claude.dbpoc.m20: INFO
+    org.flywaydb: INFO

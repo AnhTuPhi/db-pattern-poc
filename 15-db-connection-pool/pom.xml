@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>15-db-connection-pool</artifactId>
+    <name>15-db-connection-pool</name>
+    <description>
+        HikariCP — the pool that decides whether your service survives load.
+        Demonstrates the knobs (maximum-pool-size, minimum-idle,
+        connection-timeout, idle-timeout, max-lifetime, validation-timeout,
+        leak-detection-threshold) by reading the live HikariPoolMXBean and by
+        running parallel stress on the pool. Includes the Brett Wooldridge
+        sizing formula as a static endpoint so the math is on the table next
+        to the demo.
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints — the whole point is to drive each demo from the
+             outside and read back the live pool state. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- starter-data-jpa pulls HikariCP transitively AND auto-configures
+             a DataSource from spring.datasource.*. We don't define any
+             entities; we use the DataSource directly to read the pool MXBean
+             and to issue raw JDBC against pg_sleep. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Postgres only — the rest of this POC standardises on Postgres,
+             and Hikari behaviour against Postgres is what we want to teach. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Timing helper for the JSON response shape used across the POC. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+
+        <!-- p6spy so the SQL the stress driver issues (mostly SELECT 1 and
+             pg_sleep) is visible in the log. Useful when an "acquired" call
+             really did get a connection vs. waited at the pool. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: m18-db-zero-downtime-migration
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m18_migration
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m18-pool
+
+  # We're using raw JDBC here, not JPA. The point of the module is the
+  # SQL migration sequence; using @Entity would obscure it.
+
+server:
+  port: 8218
+
+logging:
+  level:
+    com.claude.dbpoc.m18: INFO

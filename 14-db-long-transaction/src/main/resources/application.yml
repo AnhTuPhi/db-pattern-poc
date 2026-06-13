@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: m14-db-long-transaction
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m14_longtx
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      pool-name: m14-pool
+      # Each "demo" thread opens its own connection. Long tx demos hold a
+      # connection for the duration of the demo, so the pool needs headroom.
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8214
+
+logging:
+  level:
+    com.claude.dbpoc.m14: INFO
+    p6spy: INFO

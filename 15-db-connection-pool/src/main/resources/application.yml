@@ -1,0 +1,96 @@
+spring:
+  application:
+    # Module tag so log/grep can isolate this module's output.
+    name: m15-db-connection-pool
+
+  datasource:
+    # currentSchema= isolates this module's tables from the other modules
+    # sharing the same Postgres instance.
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m15_pool
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # maximum-pool-size — the headline knob.
+      # 10 is small on purpose. The Wooldridge formula on a 4-core dev box
+      # with no spindles lands around 8-10. Bigger is NOT better: Postgres
+      # serialises connection work on a per-backend basis and more
+      # connections than your CPU can drain just means longer queueing.
+      maximum-pool-size: 10
+
+      # minimum-idle — how many connections Hikari keeps warm.
+      # Default = maximum-pool-size (i.e. a fixed-size pool). We pick 2 so
+      # /pool/lifetime-rotation can SHOW pool resizing behaviour and so the
+      # idle-timeout knob actually does something visible.
+      minimum-idle: 2
+
+      # connection-timeout — how long getConnection() waits for a free conn.
+      # 2s is short on purpose; on /pool/stress with threads > pool size,
+      # the excess threads must surface as SQLTransientConnectionException
+      # quickly, not block forever and hide the demo.
+      connection-timeout: 2000
+
+      # idle-timeout — how long an idle connection stays in the pool above
+      # minimum-idle before being retired. 60s keeps churn visible without
+      # making the pool thrash during a stress run.
+      idle-timeout: 60000
+
+      # max-lifetime — connections older than this are retired even if
+      # in use (after they're returned). 5 minutes is the standard value
+      # in production: many firewalls and PG-side idle killers cut at
+      # 10-15 minutes, so 5 keeps us comfortably under that ceiling.
+      max-lifetime: 300000
+
+      # validation-timeout — how long the pool's "is this conn alive" check
+      # is allowed to take. 1s is enough on a healthy LAN; longer hides
+      # real network problems.
+      validation-timeout: 1000
+
+      # leak-detection-threshold — 0 = OFF. We turn it on in module 16,
+      # where the whole point is detecting a forgotten close(). For this
+      # module the stress endpoint will close cleanly so leak warnings
+      # would only be noise.
+      leak-detection-threshold: 0
+
+      # pool-name — appears in JMX, logs, and the response payloads. One
+      # name per module so the /actuator/metrics output is readable when
+      # several modules run side-by-side.
+      pool-name: m15-pool
+
+  jpa:
+    # We don't define entities in this module — pool stats are read off
+    # the HikariDataSource directly. Keep Hibernate quiet, but the starter
+    # is still on the path so a DataSource is autoconfigured.
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+decorator:
+  datasource:
+    p6spy:
+      # Cheap insurance — proves which acquire calls actually issued SQL.
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8215
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose /actuator/metrics so hikaricp.connections.* gauges are
+        # scrape-able. /pool/inspect surfaces the same data in friendlier
+        # JSON, but the actuator path is the production-shaped one.
+        include: health,info,metrics,prometheus
+
+logging:
+  level:
+    com.claude.dbpoc.m15: INFO
+    # HikariPool logs every pool event at DEBUG (acquire, evict, fill).
+    # INFO keeps the log readable; bump to DEBUG when you want to trace a
+    # specific bad outcome.
+    com.zaxxer.hikari: INFO
+    p6spy: INFO

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>13-db-optimistic-vs-pessimistic</artifactId>
+    <name>13-db-optimistic-vs-pessimistic</name>
+    <description>
+        Three concurrency strategies under one microbenchmark:
+          - optimistic     (@Version + retry on ObjectOptimisticLockingFailureException)
+          - pessimistic    (SELECT ... FOR UPDATE inside the transaction)
+          - cas            (single UPDATE Account SET balance = balance + ? WHERE id = ?)
+
+        Same N threads, same iteration count, same row layout. The endpoints
+        sweep low/medium/high contention so you can SEE the hot-row
+        crossover: pessimistic is the fastest on a single hot row, CAS is the
+        fastest when writes scatter, optimistic wins only when the conflict
+        rate is < ~5%.
+
+        Production framing: choosing the wrong strategy for your contention
+        profile burns CPU on retries (optimistic on a hot row) or queues
+        threads behind a lock that didn't need to exist (pessimistic on
+        dispersed writes). This module turns that decision into measured
+        ops/sec at the moment you're deciding.
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints to drive the benchmark from outside the JVM so
+             warm-up and main runs share the same process state. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JPA/Hibernate — @Version (optimistic), @Lock PESSIMISTIC_WRITE
+             (FOR UPDATE), and a native UPDATE for the CAS-style fix. All
+             three strategies share the same Account entity. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Postgres only — row-level locking semantics, MVCC behaviour
+             under contention, and the actual numbers all differ from
+             other engines. Pinning the benchmark to one engine keeps the
+             story honest. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Shared timing helpers used in the JSON response. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+
+        <!-- p6spy proves what each strategy actually sends on the wire:
+             optimistic → UPDATE ... WHERE id=? AND version=?
+             pessimistic → SELECT ... FOR UPDATE  then  UPDATE ...
+             cas → single UPDATE balance = balance + ? WHERE id=?
+             Invaluable when the numbers don't match the prediction. -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

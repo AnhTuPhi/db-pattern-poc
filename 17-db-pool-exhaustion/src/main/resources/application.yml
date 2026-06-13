@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: m17-db-pool-exhaustion
+
+  # NOTE: We override the auto-config DataSource with TWO @Bean Hikari
+  # data sources in PoolConfig. Each has its own connection-timeout so
+  # the "cascade" demo fails FAST (1s) instead of waiting 30s default.
+
+  datasource:
+    main:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m17_pool
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m17-main
+      maximum-pool-size: 10
+      minimum-idle: 2
+      # Aggressive timeout so the cascade demo finishes in seconds, not
+      # minutes. In prod you'd typically set 2000–5000ms; same principle.
+      connection-timeout: 1000
+      validation-timeout: 250
+      register-mbeans: true
+
+    slow:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m17_pool
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      # 4 slots — small, deliberate. The "slow" feature gets exactly this
+      # much pool budget. When it's saturated, NEW slow requests fail
+      # immediately, but main traffic is unaffected. THAT is the bulkhead.
+      pool-name: m17-slow
+      maximum-pool-size: 4
+      minimum-idle: 1
+      connection-timeout: 1000
+      validation-timeout: 250
+      register-mbeans: true
+
+server:
+  port: 8217
+
+logging:
+  level:
+    com.claude.dbpoc.m17: INFO
+    com.zaxxer.hikari: INFO

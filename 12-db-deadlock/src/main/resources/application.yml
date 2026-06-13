@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: m12-db-deadlock
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m12_deadlock
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      pool-name: m12-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+
+server:
+  port: 8212
+
+logging:
+  level:
+    com.claude.dbpoc.m12: INFO
+    # Hibernate logs the SQLState on translated exceptions — useful to confirm
+    # 40P01 made it out of the JDBC driver unmolested.
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: INFO
+    p6spy: INFO

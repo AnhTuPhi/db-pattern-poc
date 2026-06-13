@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: m21-db-read-replica
+
+  # Two physical DataSources. We simulate "primary + replica" by pointing
+  # at TWO postgres schemas in the same DB. Real replication would have
+  # two physical servers; the routing code is identical.
+  datasource:
+    primary:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m21_primary
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m21-primary
+      maximum-pool-size: 10
+    replica:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m21_replica
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m21-replica
+      maximum-pool-size: 10
+      # In real replication the replica is read-only. Setting
+      # `read-only: true` on Hikari hardens this — any accidental write
+      # would error.
+      read-only: true
+
+  jpa:
+    hibernate:
+      ddl-auto: none           # we manage DDL by hand to seed both schemas
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8221
+
+logging:
+  level:
+    com.claude.dbpoc.m21: INFO
+    org.springframework.jdbc.datasource.lookup: DEBUG

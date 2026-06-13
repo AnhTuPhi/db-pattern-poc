@@ -30,6 +30,26 @@
         <module>08-jpa-batch-insert-update</module>
         <module>09-querydsl-vs-jpql-vs-criteria</module>
         <module>10-db-isolation-levels</module>
+        <module>11-db-locking</module>
+        <module>12-db-deadlock</module>
+        <module>13-db-optimistic-vs-pessimistic</module>
+        <module>14-db-long-transaction</module>
+        <module>15-db-connection-pool</module>
+        <module>16-db-connection-leak</module>
+        <module>17-db-pool-exhaustion</module>
+        <module>18-db-zero-downtime-migration</module>
+        <module>19-db-online-ddl</module>
+        <module>20-db-migration-rollback</module>
+        <module>21-db-read-replica</module>
+        <module>22-db-table-partitioning</module>
+        <module>23-db-sharding</module>
+        <module>24-db-vitess-citus</module>
+        <module>25-db-caching-layers</module>
+        <module>26-db-materialized-view</module>
+        <module>27-db-cqrs</module>
+        <module>28-db-jsonb</module>
+        <module>29-db-hybrid-relational-document</module>
+        <module>30-db-multi-tenancy</module>
     </modules>
 
     <properties>

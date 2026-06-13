@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: m19-db-online-ddl
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m19_online_ddl
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m19-pool
+
+server:
+  port: 8219
+
+logging:
+  level:
+    com.claude.dbpoc.m19: INFO

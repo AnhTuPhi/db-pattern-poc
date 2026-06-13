@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: m13-db-optimistic-vs-pessimistic
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m13_concurrency
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # The benchmark runs 16 worker threads in the default config; 40 leaves
+      # comfortable headroom for the controller request thread + p6spy +
+      # whatever Spring is doing in the background. Bigger is NOT better:
+      # at 40 we'll see Postgres backends serialise FOR UPDATE waiters
+      # cleanly, which is what we want to measure.
+      maximum-pool-size: 40
+      pool-name: m13-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        # Tight benchmark loops are noisy when format_sql is on — every
+        # statement is logged with a couple of newlines. We log at INFO
+        # by default, but if you flip p6spy logging to DEBUG the multiline
+        # output gets unreadable in seconds.
+        format_sql: false
+        # batch_size is irrelevant for the +$1 path (single-row UPDATE) but
+        # leaving the knob at 1 documents the intent.
+        jdbc:
+          batch_size: 1
+
+decorator:
+  datasource:
+    p6spy:
+      # On a real benchmark run you'll want this OFF — p6spy adds visible
+      # overhead per statement and skews the ops/sec numbers. Leave it ON
+      # for the first few runs so you can confirm Hibernate actually issues
+      # SELECT ... FOR UPDATE / WHERE version=? / etc, then disable for
+      # serious timing.
+      enable-logging: true
+      multiline: false
+      logging: slf4j
+
+server:
+  port: 8213
+
+logging:
+  level:
+    com.claude.dbpoc.m13: INFO
+    org.hibernate.resource.transaction: INFO
+    # Per the comment above: turn p6spy down to WARN before a serious bench
+    # run. INFO is fine for verifying the wire-format SQL on the first call.
+    p6spy: INFO

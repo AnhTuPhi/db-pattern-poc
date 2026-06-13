@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: m22-db-table-partitioning
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m22_partition
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m22-pool
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8222
+
+logging:
+  level:
+    com.claude.dbpoc.m22: INFO

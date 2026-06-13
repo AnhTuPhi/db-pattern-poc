@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>11-db-locking</artifactId>
+    <name>11-db-locking</name>
+    <description>
+        Pessimistic locking done right. Reproduces every production-grade
+        SELECT FOR UPDATE variant — plain (waits), SKIP LOCKED (queue
+        workers), NOWAIT (fail-fast) — plus table-level LOCK TABLE for
+        coordination, and the pg_locks observability query that tells you
+        "who is locking whom" in real time.
+
+        The headline pattern is the job-queue dequeue with SKIP LOCKED:
+        the cheapest correct way to fan out work across N stateless
+        workers without coordination outside the database.
+    </description>
+
+    <dependencies>
+        <!-- REST endpoints to drive each demo from outside the JVM. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JPA/Hibernate — @Lock(PESSIMISTIC_WRITE) on repository methods
+             produces SELECT ... FOR UPDATE on Postgres. Native queries are
+             used for SKIP LOCKED / NOWAIT because the @Lock annotation
+             cannot express those clauses. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Postgres only. SELECT FOR UPDATE SKIP LOCKED has been a Postgres
+             feature since 9.5 and is the reason this whole module exists.
+             Oracle has the same primitive, MySQL InnoDB added it in 8.0.1. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Shared timing/measurement helpers used in the JSON responses. -->
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+
+        <!-- p6spy makes the on-wire SQL visible — invaluable for confirming
+             that Hibernate actually appended FOR UPDATE / SKIP LOCKED /
+             NOWAIT clauses (and didn't silently drop them). -->
+        <dependency>
+            <groupId>com.github.gavlyukovskiy</groupId>
+            <artifactId>p6spy-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
