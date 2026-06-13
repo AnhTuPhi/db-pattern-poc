@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: m26-db-materialized-view
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m26_mv
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m26-pool
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8226
+
+logging:
+  level:
+    com.claude.dbpoc.m26: INFO
+
+# Scheduled refresh interval (ms). Set high so the demo doesn't refresh
+# under our feet; set low in real life.
+mv:
+  refresh-interval-ms: 60000

@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: m25-db-caching-layers
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m25_cache
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20         # generous so the stampede demo has room
+      pool-name: m25-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+        # Hibernate's statement-counting (Statistics) is the cheapest way
+        # to PROVE a query did or did not hit the DB. We turn it on so
+        # the service can read the counter after each call.
+        generate_statistics: true
+        # L1 is always on and is per-Session. L2 is opt-in — we don't
+        # configure a backend by default; the demo shows L1 only.
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8225
+
+logging:
+  level:
+    com.claude.dbpoc.m25: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.stat: INFO

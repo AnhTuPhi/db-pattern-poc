@@ -39,6 +39,16 @@ Each module is a runnable Spring Boot app focused on one pattern. The code is he
 | 18-db-zero-downtime-migration | 8218 | Expand/contract pattern, dual-write/dual-read column changes | Postgres |
 | 19-db-online-ddl | 8219 | `pg_repack`, `gh-ost`, Oracle online redefinition | Postgres + Oracle |
 | 20-db-migration-rollback | 8220 | Flyway/Liquibase, "always-forward" pattern, versioned vs repeatable | Postgres |
+| 21-db-read-replica | 8221 | Primary/replica routing, replica lag, read-your-writes | Postgres |
+| 22-db-table-partitioning | 8222 | RANGE/LIST/HASH + partition pruning + sliding-window retention | Postgres |
+| 23-db-sharding | 8223 | App-level sharding by tenant; modulo vs consistent hashing; scatter-gather | Postgres |
+| 24-db-vitess-citus | 8224 | Distributed Postgres via Citus: distributed / co-located / reference tables | Postgres (Citus) |
+| 25-db-caching-layers | 8225 | Hibernate L1, Caffeine (L2 in-proc), Redis (L2 shared); stampede + single-flight | Postgres + Redis |
+| 26-db-materialized-view | 8226 | Pre-aggregated reads, `REFRESH CONCURRENTLY`, trigger-maintained computed columns | Postgres |
+| 27-db-cqrs | 8227 | Write model + outbox + poller projecting into a disposable read model | Postgres |
+| 28-db-jsonb | 8228 | JSONB + GIN (`jsonb_path_ops` vs default) + functional indexes; the "all-in-JSON" anti-pattern | Postgres |
+| 29-db-hybrid-relational-document | 8229 | Spine of columns + JSONB leaves; `lateral jsonb_array_elements` for SQL over docs | Postgres |
+| 30-db-multi-tenancy | 8230 | Shared schema + RLS, schema-per-tenant, DB-per-tenant; how to choose | Postgres |
 
 > Why Postgres for most diagnostic POCs? `EXPLAIN ANALYZE`, `pg_stat_statements`, and `auto_explain` give the clearest visibility into the optimizer's actual decisions. The Oracle equivalents (`dbms_xplan`, `V$SQL`, AWR) are demonstrated in the modules that benefit from them (02, 03, 08). Every JPA-level lesson is DB-agnostic.
 
@@ -49,7 +59,9 @@ Each module is a runnable Spring Boot app focused on one pattern. The code is he
 ```bash
 docker compose --profile postgres up -d           # Postgres only
 docker compose --profile oracle up -d             # Oracle 23ai Free only
-docker compose --profile core up -d               # Both
+docker compose --profile core up -d               # Postgres + Oracle + Redis
+docker compose --profile redis up -d              # Redis (for m25 caching)
+docker compose --profile citus up -d              # Citus coordinator + 2 workers (for m24)
 docker compose --profile observability up -d      # + Prometheus + Grafana + pg_exporter
 ```
 
@@ -57,6 +69,8 @@ docker compose --profile observability up -d      # + Prometheus + Grafana + pg_
 |---|---|
 | Postgres | `jdbc:postgresql://localhost:5432/appdb` (`appuser` / `AppUser123`) |
 | Oracle | `jdbc:oracle:thin:@localhost:1521/FREEPDB1` (`appuser` / `AppUser123`) |
+| Redis | `redis://localhost:6379` (no auth) |
+| Citus coordinator | `jdbc:postgresql://localhost:5433/appdb` (`appuser` / `AppUser123`) |
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 (anonymous Admin) |
 
@@ -173,6 +187,46 @@ Rename a column without breaking deploys. Expand (add new column, dual-write, ba
 
 Why `flyway migrate` is one-way in practice. The "always-forward" pattern: every change is a new migration, never edited. Versioned vs repeatable scripts. Liquibase rollback blocks: when they help and when they're a trap.
 
+### 21. Read replicas — routing reads off the primary
+
+Two HikariCP pools (primary + replica), an `AbstractRoutingDataSource` keyed off `@Transactional(readOnly = true)`, and a deliberate "I read my own write off the replica and got stale data" demo. The read-your-writes fix: route THAT read at the primary, or wait for the LSN to catch up.
+
+### 22. Table partitioning — RANGE / LIST / HASH
+
+Native Postgres declarative partitioning against the same `events` domain in three shapes: monthly RANGE (with sliding-window retention via `DETACH PARTITION` + `DROP TABLE`), LIST by region for routing, HASH by user_id for write spread. `EXPLAIN` shows partition pruning so only the partitions that match the predicate get scanned.
+
+### 23. Sharding — application-level routing
+
+Four HikariCP pools, one per shard schema. A `ShardRouter` with two strategies side-by-side: **modulo** (`hash % N`, easy to reason about, ~3/4 keys move on resize) and **consistent hashing** (TreeMap-backed ring with virtual nodes, ~1/N keys move on resize). Endpoints prove the movement fraction. Scatter-gather across shards via a parallel `ExecutorService`.
+
+### 24. Vitess / Citus — distributed Postgres
+
+A real Citus coordinator + 2 workers via docker-compose. Demonstrates **distributed**, **co-located**, and **reference** tables, and the queries that route to one worker (single-tenant) vs every worker (cross-tenant) vs broadcast (reference join). The "when to graduate from app-level sharding" write-up.
+
+### 25. Caching layers — L1, L2, query, distributed
+
+Hibernate L1 cache (per-session identity), Caffeine as in-process L2, Redis as shared L2. The **cache stampede** demo: N concurrent requests on a cold key fire N DB queries; the **single-flight** registry (`ConcurrentMap<K, CompletableFuture<V>>`) collapses them into 1. Each cache layer is measured per-call.
+
+### 26. Materialized views — pre-aggregated reads
+
+Build a `monthly_sales` MV over orders + items + products, time the expensive aggregate vs the MV select, mutate the underlying rows to show staleness, then refresh — both blocking (`REFRESH MATERIALIZED VIEW`) and concurrent (`REFRESH CONCURRENTLY`, which needs a unique index). Bonus: trigger-maintained computed columns as the "always-fresh" alternative.
+
+### 27. CQRS + outbox — atomic write+publish
+
+The textbook CQRS shape: normalized `orders` write model, `outbox_events` table written in the **same transaction** as the order (no dual-write hole), a `@Scheduled` poller draining the outbox with `FOR UPDATE SKIP LOCKED` and idempotent projection into `user_order_summary` (read model). `/rebuild` truncates the read model and replays the outbox — your read model is cattle.
+
+### 28. JSONB — binary JSON, GIN indexes, the schemaless anti-pattern
+
+Same domain in two shapes: `product_normalized` (every field a column) vs `product_doc` (`data jsonb`). Build GIN indexes both ways (`gin(data)` for keys+containment vs `gin(data jsonb_path_ops)` for containment-only, half the size). Functional index on `(data->>'sku')` for the path-query case. The anti-pattern endpoint shows what constraints JSONB lets through that columns wouldn't.
+
+### 29. Hybrid relational + document — "Postgres replaces MongoDB"
+
+Structured spine (columns + FKs + B-trees) on the same row as a JSONB extension column. Spine queries: indexed lookups. Leaf queries: `@>` containment with GIN. Reporting: `LATERAL jsonb_array_elements` materializes the embedded array as relational rows so you can `GROUP BY` and `JOIN` over them — the move pure document stores struggle with.
+
+### 30. Multi-tenancy — RLS, schema-per-tenant, DB-per-tenant
+
+Three strategies on the same domain. Strategy 1 uses Postgres **Row-Level Security** so a forgotten `where tenant_id=?` can't leak — there's a `/shared/breach/{otherTenant}` endpoint proving it. Strategy 2 sets `search_path` per request to a tenant schema. Strategy 3 (DB-per-tenant) is conceptual with a choosing-flowchart for which to pick at which scale.
+
 ---
 
 ## How each module is structured
@@ -196,7 +250,7 @@ NN-name/
 
 ---
 
-## The 20-module roadmap, grouped
+## The 30-module roadmap, grouped
 
 | Group                          | Modules | What it covers                                                                |
 |--------------------------------|---------|-------------------------------------------------------------------------------|
@@ -207,8 +261,12 @@ NN-name/
 | **Transaction discipline**     | 14      | Long transactions and what they break                                         |
 | **Connection management**      | 15–17   | Pool sizing, leak detection, exhaustion & bulkhead                            |
 | **Schema migration**           | 18–20   | Expand/contract, online DDL, always-forward rollback                          |
+| **Scaling: replicas & shape**  | 21–24   | Read replicas, partitioning, app-level sharding, distributed Postgres (Citus) |
+| **Caching & read paths**       | 25–27   | Caching layers, materialized views, CQRS + outbox                             |
+| **JSON & hybrid storage**      | 28–29   | JSONB primitives, hybrid relational+document pattern                          |
+| **Multi-tenancy**              | 30      | Shared schema + RLS, schema-per-tenant, DB-per-tenant                         |
 
-Future batches (not in this repo yet): read replicas, partitioning, sharding, caching layers, JSONB, multi-tenancy, time-series, Oracle AWR/bind-peeking specifics, full ops/observability stack.
+Adjacent batches not in this repo yet: time-series specialization, Oracle AWR / bind-peeking deep dives, full ops/observability stack (Grafana dashboards, alerts).
 
 ---
 

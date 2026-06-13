@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: m30-db-multi-tenancy
+
+  # The single DB hosts both strategies on different schemas.
+  # The shared-schema strategy uses m30_shared.
+  # The schema-per-tenant strategy uses m30_t_<tenant_id>.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m30-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8230
+
+logging:
+  level:
+    com.claude.dbpoc.m30: INFO

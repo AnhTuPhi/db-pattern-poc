@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: m29-db-hybrid-relational-document
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m29_hybrid
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m29-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8229
+
+logging:
+  level:
+    com.claude.dbpoc.m29: INFO

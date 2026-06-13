@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: m28-db-jsonb
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m28_jsonb
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m28-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: none      # we DDL by hand so the JSONB schemas are explicit
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8228
+
+logging:
+  level:
+    com.claude.dbpoc.m28: INFO

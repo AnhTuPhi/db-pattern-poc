@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>24-db-vitess-citus</artifactId>
+    <name>24-db-vitess-citus</name>
+    <description>
+        When app-level sharding (m23) is no longer worth maintaining,
+        you graduate to a distributed SQL platform: Vitess (MySQL) or
+        Citus (Postgres). The app now writes plain SQL; the topology +
+        routing is the database's problem. This module runs against
+        Citus 12 — distributed tables, reference tables, co-located
+        joins, and the EXPLAIN-on-distributed-query that shows the
+        scatter/gather you no longer have to code by hand.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

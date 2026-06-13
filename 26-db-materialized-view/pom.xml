@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.claude.dbpoc</groupId>
+        <artifactId>db-production-patterns-poc</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>26-db-materialized-view</artifactId>
+    <name>26-db-materialized-view</name>
+    <description>
+        Materialized views — precomputed query results stored as a
+        real relation. Postgres specifics: REFRESH locks the MV
+        exclusively, REFRESH CONCURRENTLY does not (but is slower and
+        needs a UNIQUE index). This module benchmarks an expensive
+        analytical query vs its MV, demonstrates both refresh modes,
+        shows the staleness window, and compares to two alternatives:
+        computed columns (always-fresh, write-side cost) and
+        denormalization (DIY MV with manual triggers/jobs).
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.claude.dbpoc</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

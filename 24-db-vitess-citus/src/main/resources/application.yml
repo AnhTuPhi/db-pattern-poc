@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: m24-db-vitess-citus
+
+  datasource:
+    # The Citus coordinator is on port 5433 (see docker-compose, profile "citus").
+    # The app connects to ONE endpoint — the coordinator transparently routes
+    # to the right worker. This is the entire point of distributed SQL: the
+    # database knows the topology, the app doesn't.
+    url: jdbc:postgresql://localhost:5433/appdb?currentSchema=public
+    username: appuser
+    password: AppUser123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      pool-name: m24-pool
+
+server:
+  port: 8224
+
+logging:
+  level:
+    com.claude.dbpoc.m24: INFO

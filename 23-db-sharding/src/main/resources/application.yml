@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: m23-db-sharding
+
+  # We simulate a 4-shard cluster by pointing 4 HikariCP pools at
+  # 4 schemas in the same Postgres. Real sharding is 4 servers; the
+  # ROUTING code (the ShardRouter) is identical. The only thing that
+  # changes is the JDBC URL host.
+  datasource:
+    s0:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m23_s0
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m23-s0
+      maximum-pool-size: 6
+    s1:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m23_s1
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m23-s1
+      maximum-pool-size: 6
+    s2:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m23_s2
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m23-s2
+      maximum-pool-size: 6
+    s3:
+      jdbc-url: jdbc:postgresql://localhost:5432/appdb?currentSchema=m23_s3
+      username: appuser
+      password: AppUser123
+      driver-class-name: org.postgresql.Driver
+      pool-name: m23-s3
+      maximum-pool-size: 6
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8223
+
+logging:
+  level:
+    com.claude.dbpoc.m23: INFO
