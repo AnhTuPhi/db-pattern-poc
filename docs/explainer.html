@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DB Production Patterns — Interactive Explainer</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121824; --panel2:#0e131d; --line:#1e2937;
+    --ink:#e6edf6; --muted:#8ba0b8; --dim:#5f728a;
+    --accent:#5e9dff; --accent2:#7c5cff;
+    --green:#2ec27e; --amber:#f2b134; --red:#ff5d6c;
+    --chip:#182231; --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px 20px 80px}
+  header.hero{padding:16px 0 8px}
+  .kicker{color:var(--accent2);font-weight:700;letter-spacing:.14em;font-size:12px;text-transform:uppercase}
+  h1{font-size:34px;margin:.25em 0 .1em;letter-spacing:-.02em}
+  .sub{color:var(--muted);max-width:760px;font-size:15px}
+  .thesis{margin:18px 0 6px;padding:14px 18px;border-left:3px solid var(--accent2);
+    background:linear-gradient(90deg,rgba(124,92,255,.10),transparent);border-radius:0 10px 10px 0;color:#cdd8e6}
+  .docnav{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 6px}
+  .docnav a{background:var(--chip);border:1px solid var(--line);padding:6px 12px;border-radius:999px;font-size:13px;color:var(--ink)}
+  .docnav a:hover{border-color:var(--accent);text-decoration:none}
+  section{margin-top:44px}
+  h2{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .h2sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+
+  /* Flow diagram */
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;overflow-x:auto}
+  .flow svg{display:block;min-width:820px;width:100%;height:auto}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;color:var(--muted);font-size:13px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  /* Controls */
+  .controls{position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);
+    padding:14px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .search{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 14px;border-radius:10px;font-size:14px;outline:none}
+  .search:focus{border-color:var(--accent)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap}
+  .fbtn{background:var(--chip);border:1px solid var(--line);color:var(--muted);padding:7px 12px;border-radius:999px;
+    font-size:12.5px;cursor:pointer;transition:.15s;user-select:none}
+  .fbtn:hover{color:var(--ink);border-color:var(--accent)}
+  .fbtn.active{background:var(--accent);border-color:var(--accent);color:#04111f;font-weight:700}
+
+  /* Grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;
+    display:flex;flex-direction:column;gap:10px;transition:.15s;position:relative;overflow:hidden}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card .top{display:flex;align-items:center;gap:10px}
+  .num{font-family:var(--mono);font-size:13px;color:#04111f;background:var(--accent);border-radius:8px;
+    padding:3px 8px;font-weight:700}
+  .card h3{font-size:16px;margin:0;flex:1}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:-2px}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+  .tag.port{color:var(--accent)}
+  .row{font-size:13.5px}
+  .row b{color:var(--muted);font-weight:600;display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+  .row.prob b{color:var(--red)}
+  .row.prot b{color:var(--green)}
+  .row.sol b{color:var(--accent)}
+  .row.debt b{color:var(--amber)}
+  .techchips{display:flex;flex-wrap:wrap;gap:5px}
+  .tc{font-family:var(--mono);font-size:11px;background:var(--chip);border:1px solid var(--line);
+    border-radius:6px;padding:2px 7px;color:#c6d4e6}
+  .sevbar{position:absolute;top:0;right:0;width:6px;height:100%}
+  .sev-green{background:var(--green)} .sev-amber{background:var(--amber)} .sev-red{background:var(--red)}
+  .grouphead{grid-column:1/-1;margin:22px 0 -2px;display:flex;align-items:center;gap:12px}
+  .grouphead h4{margin:0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2)}
+  .grouphead .ln{flex:1;height:1px;background:var(--line)}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px}
+
+  /* Scaling matrix */
+  table.mx{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;font-size:13.5px}
+  table.mx th,table.mx td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.mx th{background:var(--panel2);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  table.mx tr:last-child td{border-bottom:none}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .pill.g{background:rgba(46,194,126,.15);color:var(--green)}
+  .pill.a{background:rgba(242,177,52,.15);color:var(--amber)}
+  .pill.r{background:rgba(255,93,108,.15);color:var(--red)}
+  code{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);padding:1px 5px;border-radius:5px;font-size:12px}
+  footer{margin-top:60px;color:var(--muted);font-size:13px;text-align:center;border-top:1px solid var(--line);padding-top:24px}
+  .count{color:var(--muted);font-size:13px;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">DAccount · DB Production Patterns POC</div>
+    <h1>The database is the reliability frontier</h1>
+    <p class="sub">Thirty runnable Spring Boot modules, each reproducing one way a database interaction
+    fails in production — then proving the fix with real SQL, real timing, and the failure you can watch happen.
+    This page is the map: the request flow, every pattern, and what breaks when you scale.</p>
+    <div class="thesis">Almost every database failure is invisible in code review. It only surfaces under
+    production concurrency, data volume, or scale — so we made each one <b>runnable</b>, not just described.</div>
+    <nav class="docnav">
+      <a href="../ISSUE.md">📄 ISSUE.md — the problem</a>
+      <a href="../TECHNICAL.md">🔧 TECHNICAL.md — per-module deep dive</a>
+      <a href="../CONSISTENCY.md">📈 CONSISTENCY.md — scaling to N pods</a>
+      <a href="../README.md">▶ README.md — build &amp; run</a>
+    </nav>
+  </header>
+
+  <!-- ============ FLOW ============ -->
+  <section id="flow">
+    <h2>The request &amp; data flow</h2>
+    <p class="h2sub">Where each group of patterns lives on the path from an HTTP request to durable storage.</p>
+    <div class="flow">
+      <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" font-family="var(--sans)">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#5f728a"/>
+          </marker>
+          <style>
+            .bx{fill:#0e131d;stroke:#1e2937;stroke-width:1.5;rx:12}
+            .lbl{fill:#e6edf6;font-size:14px;font-weight:600}
+            .mod{fill:#8ba0b8;font-size:11px;font-family:var(--mono)}
+            .flowline{stroke:#5f728a;stroke-width:1.6;fill:none;marker-end:url(#arr)}
+            .grp{fill:#7c5cff;font-size:10.5px;font-weight:700;letter-spacing:.08em}
+          </style>
+        </defs>
+
+        <!-- client -->
+        <rect class="bx" x="20" y="180" width="120" height="70" rx="12"/>
+        <text class="lbl" x="80" y="210" text-anchor="middle">Client</text>
+        <text class="mod" x="80" y="230" text-anchor="middle">HTTP / curl</text>
+
+        <!-- app pods -->
+        <rect class="bx" x="200" y="150" width="170" height="130" rx="12"/>
+        <text class="grp" x="285" y="140" text-anchor="middle">APP TIER (N pods)</text>
+        <text class="lbl" x="285" y="180" text-anchor="middle">Spring Boot</text>
+        <text class="mod" x="285" y="202" text-anchor="middle">JPA · QueryDSL</text>
+        <text class="mod" x="285" y="220" text-anchor="middle">m05–m09 correctness</text>
+        <text class="mod" x="285" y="238" text-anchor="middle">m25 in-proc cache</text>
+        <text class="mod" x="285" y="256" text-anchor="middle">m26/27 schedulers</text>
+
+        <!-- pool -->
+        <rect class="bx" x="430" y="165" width="120" height="100" rx="12"/>
+        <text class="grp" x="490" y="140" text-anchor="middle">CONNECTION MGMT</text>
+        <text class="lbl" x="490" y="200" text-anchor="middle">HikariCP</text>
+        <text class="mod" x="490" y="222" text-anchor="middle">pool · bulkhead</text>
+        <text class="mod" x="490" y="240" text-anchor="middle">m15–m17</text>
+
+        <!-- primary db -->
+        <rect class="bx" x="620" y="60" width="180" height="150" rx="12"/>
+        <text class="grp" x="710" y="50" text-anchor="middle">PRIMARY DB</text>
+        <text class="lbl" x="710" y="90" text-anchor="middle">Postgres / Oracle</text>
+        <text class="mod" x="710" y="114" text-anchor="middle">m01–04 plans/indexes</text>
+        <text class="mod" x="710" y="132" text-anchor="middle">m10–14 txn &amp; locks</text>
+        <text class="mod" x="710" y="150" text-anchor="middle">m18–20 migrations</text>
+        <text class="mod" x="710" y="168" text-anchor="middle">m22 partitioning</text>
+        <text class="mod" x="710" y="186" text-anchor="middle">m28–30 jsonb/tenancy</text>
+
+        <!-- replica -->
+        <rect class="bx" x="620" y="240" width="180" height="60" rx="12"/>
+        <text class="lbl" x="710" y="266" text-anchor="middle">Read Replica</text>
+        <text class="mod" x="710" y="285" text-anchor="middle">m21 routing · lag</text>
+
+        <!-- shards / citus -->
+        <rect class="bx" x="620" y="330" width="180" height="60" rx="12"/>
+        <text class="lbl" x="710" y="356" text-anchor="middle">Shards / Citus</text>
+        <text class="mod" x="710" y="375" text-anchor="middle">m23–24 · m27 read model</text>
+
+        <!-- redis -->
+        <rect class="bx" x="430" y="315" width="120" height="60" rx="12"/>
+        <text class="lbl" x="490" y="341" text-anchor="middle">Redis</text>
+        <text class="mod" x="490" y="360" text-anchor="middle">shared L2 · m25</text>
+
+        <!-- lines -->
+        <path class="flowline" d="M140 215 L198 215"/>
+        <path class="flowline" d="M370 215 L428 215"/>
+        <path class="flowline" d="M550 200 L618 150"/>
+        <path class="flowline" d="M550 235 L618 265"/>
+        <path class="flowline" d="M550 250 L618 355"/>
+        <path class="flowline" d="M330 280 C 360 340, 400 345, 428 345"/>
+      </svg>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--green)"></i> DB-arbitrated → scales cleanly</span>
+        <span><i class="dot" style="background:var(--amber)"></i> Needs care at N pods</span>
+        <span><i class="dot" style="background:var(--red)"></i> Silently breaks at N pods</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODULES ============ -->
+  <section id="modules">
+    <h2>The 30 patterns</h2>
+    <p class="h2sub">Filter by problem family or search. Each card: the hard problem · what it protects · the solution ·
+      key tech · the tech debt. Colored edge = scaling severity.</p>
+
+    <div class="controls">
+      <input id="search" class="search" placeholder="Search patterns, tech, keywords…  (e.g. 'lock', 'jsonb', 'pool')" />
+      <div class="filters" id="filters"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- ============ SCALING ============ -->
+  <section id="scaling">
+    <h2>Scaling impact — 1 pod → N pods</h2>
+    <p class="h2sub">What horizontal scaling (k8s pods / VM fleet) does to each pattern. Full detail in
+      <a href="../CONSISTENCY.md">CONSISTENCY.md</a>.</p>
+    <table class="mx">
+      <thead><tr><th>Pattern</th><th>Modules</th><th>At N instances</th><th>What to do</th></tr></thead>
+      <tbody id="mxbody"></tbody>
+    </table>
+  </section>
+
+  <footer>
+    Self-contained explainer · no server required · part of the DB Production Patterns POC.<br/>
+    Generated companion to <a href="../ISSUE.md">ISSUE</a> · <a href="../TECHNICAL.md">TECHNICAL</a> ·
+    <a href="../CONSISTENCY.md">CONSISTENCY</a>.
+  </footer>
+</div>
+
+<script>
+const GROUPS = [
+  ["perf","Query performance"],
+  ["jpa-correct","JPA correctness"],
+  ["jpa-through","JPA throughput"],
+  ["concurrency","Concurrency & locking"],
+  ["txn","Transaction discipline"],
+  ["conn","Connection management"],
+  ["migration","Schema migration"],
+  ["scale","Scaling the data"],
+  ["readpath","Read-path scaling"],
+  ["shape","Storage shape & tenancy"],
+];
+
+// sev: g=green (neutral/safe), a=amber (care), r=red (breaks)
+const M = [
+  {n:"01",g:"perf",port:8201,db:"PG",name:"Indexing",
+   prob:"Full scan on 1M rows blows the latency budget; which index kind helps is query-shaped.",
+   prot:"Read latency & IO on the hottest access paths.",
+   sol:"Same query vs B-tree / covering / partial / functional / GIN, each measured.",
+   tech:["B-tree","covering INCLUDE","partial","functional","GIN + pg_trgm","EXPLAIN ANALYZE"],
+   debt:"Every index is a write tax + disk; wrong column order is dead weight.", sev:"g"},
+  {n:"02",g:"perf",port:8202,db:"PG+ORA",name:"Query plans",
+   prob:"Same SQL → Seq/Index/Bitmap scan depending on data; can't tune what you can't read.",
+   prot:"Your ability to diagnose why a query is slow, not guess.",
+   sol:"One query, three plan shapes forced & explained; Oracle vs Postgres.",
+   tech:["EXPLAIN (ANALYZE,BUFFERS,JSON)","DBMS_XPLAN","selectivity"],
+   debt:"EXPLAIN ANALYZE actually runs the query; plan reading is a skill.", sev:"g"},
+  {n:"03",g:"perf",port:8203,db:"PG+ORA",name:"Slow-query hunting",
+   prob:"At 03:00 you don't know which query hurts — you need top-N by total time now.",
+   prot:"Mean-time-to-diagnose during an incident.",
+   sol:"/topN from pg_stat_statements + the raw V$SQL an SRE pastes into a console.",
+   tech:["pg_stat_statements","V$SQL","reset→workload→topN"],
+   debt:"Normalizes literals; needs extension pre-loaded; ages out on restart.", sev:"g"},
+  {n:"04",g:"perf",port:8204,db:"PG",name:"Cardinality estimation",
+   prob:"A great plan collapses when stats go stale or columns correlate (estimate off 1000×).",
+   prot:"Plan stability over time — fast last week stays fast this week.",
+   sol:"Good plan → corrupt stats → watch collapse → fix with ANALYZE, then extended stats.",
+   tech:["ANALYZE","CREATE STATISTICS (dependencies)","est-vs-actual rows"],
+   debt:"Extended stats must be created & maintained per column combo; ongoing curation.", sev:"g"},
+
+  {n:"05",g:"jpa-correct",port:8205,db:"PG",name:"N+1 & five fixes",
+   prob:"findAll()+lazy getItems() fires 1+N queries; hard part is picking among 5 fixes.",
+   prot:"Round-trip count — the number in APM traces that decides survival.",
+   sol:"Six endpoints on identical data, each returning sqlStatements.",
+   tech:["JOIN FETCH","@EntityGraph","@BatchSize","DTO projection","L2 cache","SqlCounter"],
+   debt:"JOIN FETCH+page → in-memory; 2 collections → cartesian; DTO can't save back.", sev:"g"},
+  {n:"06",g:"jpa-correct",port:8206,db:"PG",name:"Fetch strategies",
+   prob:"'Make it EAGER' is wrong: EAGER cascades huge joins; LAZY throws LIE; OSIV hides it.",
+   prot:"Predictable bounded fetch cost & clean transaction boundaries.",
+   sol:"Reproduce LIE, show OSIV trade-off & EAGER trap, land on DTO projection.",
+   tech:["FetchType.LAZY","@Transactional boundary","open-in-view","DTO projection"],
+   debt:"LAZY needs discipline; turning OSIV off breaks controller lazy access.", sev:"g"},
+  {n:"07",g:"jpa-correct",port:8207,db:"PG",name:"Flush & cascade",
+   prob:"'Why did saving X delete Y?' cascade=ALL+orphanRemoval → surprise deletes.",
+   prot:"Data integrity — nothing written/deleted you didn't intend.",
+   sol:"Reproduce cascade-delete disaster & flush-timing surprise, then narrow cascades.",
+   tech:["cascade={PERSIST,MERGE}","FlushMode AUTO/COMMIT","p6spy log"],
+   debt:"Explicit cascades verbose & easy to under-specify; COMMIT can miss un-flushed read.", sev:"g"},
+
+  {n:"08",g:"jpa-through",port:8208,db:"PG+ORA",name:"Batch insert/update",
+   prob:"saveAll() unconfigured = 1 round-trip/row (50–100× slow); IDENTITY PK kills batching.",
+   prot:"Bulk-load throughput & round-trip budget.",
+   sol:"Unbatched vs batched vs IDENTITY-killed vs Oracle sequence, JDBC addBatch floor.",
+   tech:["jdbc.batch_size","order_inserts","sequence allocationSize","addBatch()"],
+   debt:"IDENTITY vs batch is schema-level; allocationSize gaps IDs; driver-specific rewrite.", sev:"g"},
+  {n:"09",g:"jpa-through",port:8209,db:"PG",name:"QueryDSL vs JPQL vs Criteria",
+   prob:"A dynamic query written wrong is unreadable, unsafe, or un-refactorable.",
+   prot:"Long-term maintainability & compile-time safety of the query layer.",
+   sol:"Same query 4 ways, compared on LoC, type-safety, refactor pain, generated SQL.",
+   tech:["QueryDSL Q-types","JPQL","Criteria API","native SQL"],
+   debt:"QueryDSL needs a build step; native forfeits portability; 4 styles = its own cost.", sev:"g"},
+
+  {n:"10",g:"concurrency",port:8210,db:"PG",name:"Isolation levels",
+   prob:"Concurrent txns → dirty/non-repeatable/phantom reads & lost updates by level.",
+   prot:"Correctness of concurrent reads/writes — in fintech, of money.",
+   sol:"Two threads, every anomaly labelled across RC / RR / SERIALIZABLE.",
+   tech:["@Transactional(isolation)","MVCC snapshot","SSI","two-thread harness"],
+   debt:"SERIALIZABLE → serialization failures you MUST retry; higher isolation = more aborts.", sev:"g"},
+  {n:"11",g:"concurrency",port:8211,db:"PG",name:"Locking",
+   prob:"Coordinate concurrent workers without blocking each other or double-processing.",
+   prot:"Throughput of contended workloads (queues, counters).",
+   sol:"Row/table/intention locks + SKIP LOCKED job queue: N workers, zero mutual block.",
+   tech:["FOR UPDATE","FOR UPDATE SKIP LOCKED","FOR UPDATE NOWAIT","pg_locks"],
+   debt:"SKIP LOCKED gives up FIFO; held locks serialize writers; queue table contends.", sev:"g"},
+  {n:"12",g:"concurrency",port:8212,db:"PG",name:"Deadlock",
+   prob:"Two txns lock in opposite order → deadlock; PG kills one (40P01).",
+   prot:"Availability of write paths under contention.",
+   sol:"Force it, dump the graph from pg_locks, fix with lock ordering + boundary retry.",
+   tech:["lock ordering by ID","retry on 40P01","pg_locks / deadlock graph"],
+   debt:"Global ordering is a discipline every writer must follow; retries must be idempotent+bounded.", sev:"g"},
+  {n:"13",g:"concurrency",port:8213,db:"PG",name:"Optimistic vs pessimistic",
+   prob:"Under contention @Version and FOR UPDATE have opposite throughput; a hot row punishes wrong choice.",
+   prot:"Write throughput AND correctness on contended rows.",
+   sol:"Same workload both ways, benchmarked low/med/high contention → find the crossover.",
+   tech:["@Version + retry","PESSIMISTIC_WRITE","contention benchmark"],
+   debt:"Optimistic needs retry+idempotency, livelocks a hot row; pessimistic holds locks & can deadlock.", sev:"g"},
+
+  {n:"14",g:"txn",port:8214,db:"PG",name:"Long transactions",
+   prob:"One tx held open (I/O inside it) holds locks, bloats MVCC, stalls xmin, builds lag.",
+   prot:"The health of the entire database instance.",
+   sol:"Hold a tx 60s and watch each symptom appear.",
+   tech:["short-tx discipline","no I/O in a tx","n_dead_tup / xmin / lag"],
+   debt:"'No I/O in a tx' forces code restructure; saga/compensation replace the long tx.", sev:"g"},
+
+  {n:"15",g:"conn",port:8215,db:"PG",name:"Connection pool",
+   prob:"Pool size by vibes: too small starves; too large overloads the DB, latency worse.",
+   prot:"The service's concurrency ceiling & the DB's memory budget.",
+   sol:"Tune each Hikari knob, show sizing math, then measure.",
+   tech:["maximumPoolSize","connectionTimeout","maxLifetime","idleTimeout","metrics"],
+   debt:"Right size is infra-specific AND multiplies by pod count — correct at 1, exhausts at 20.", sev:"r"},
+  {n:"16",g:"conn",port:8216,db:"PG",name:"Connection leak",
+   prob:"A path that forgets to close a connection drains the pool; culprit stack is long gone.",
+   prot:"Pool availability over time; catch the bug before exhaustion.",
+   sol:"Deliberately-leaking endpoint + Hikari leak detection logging the stack.",
+   tech:["leakDetectionThreshold","try-with-resources","JMX pool metrics"],
+   debt:"Leak detection only reports, doesn't reclaim; too-low threshold false-positives.", sev:"a"},
+  {n:"17",g:"conn",port:8217,db:"PG",name:"Pool exhaustion & bulkhead",
+   prob:"Single pool = single budget: one slow path holds connections, all else times out; retries worsen it.",
+   prot:"Blast-radius containment — one slow feature must not kill the service.",
+   sol:"Cascade → retry-storm (≈3× amp) → bulkhead (pool/semaphore per path/tenant).",
+   tech:["separate HikariDataSource","Semaphore per feature/tenant","timed endpoints"],
+   debt:"More pools = more total connections; a per-pod semaphore is NOT a global limit.", sev:"r"},
+
+  {n:"18",g:"migration",port:8218,db:"PG",name:"Zero-downtime migration",
+   prob:"Rename/alter a column while old+new app versions run (rolling deploy) breaks one of them.",
+   prot:"Deploy availability — no outage window for a schema change.",
+   sol:"Expand/contract: add → dual-write → backfill → migrate readers → drop old.",
+   tech:["additive DDL","dual-write/read","backfill job","per-phase endpoints"],
+   debt:"Multi-deploy choreography; dual-write cruft rarely cleaned up; big-table backfill needs batching.", sev:"r"},
+  {n:"19",g:"migration",port:8219,db:"PG+ORA",name:"Online DDL",
+   prob:"Plain CREATE INDEX / ALTER TABLE locks & blocks writes — an outage on a big table.",
+   prot:"Write availability during schema changes on large tables.",
+   sol:"CREATE INDEX CONCURRENTLY, pg_repack, Oracle DBMS_REDEFINITION; where 'online' lies.",
+   tech:["CREATE INDEX CONCURRENTLY","pg_repack","DBMS_REDEFINITION"],
+   debt:"CONCURRENTLY slower, can't be in a tx, leaves invalid index on failure; repack needs PK + 2× disk.", sev:"a"},
+  {n:"20",g:"migration",port:8220,db:"PG",name:"Migration rollback",
+   prob:"People expect to 'roll back' but migrate is one-way; down-scripts lose data or don't fit.",
+   prot:"Schema-history integrity & safe recovery from a bad change.",
+   sol:"Always-forward: every change a new migration, never edited; versioned vs repeatable.",
+   tech:["Flyway/Liquibase versioned","repeatable migrations","forward-fix","checksum history"],
+   debt:"Discipline-based (only a checksum enforces it); rollback blocks lull you into thinking undo is safe.", sev:"r"},
+
+  {n:"21",g:"scale",port:8221,db:"PG",name:"Read replica",
+   prob:"Reads overwhelm primary; routing to replica introduces lag → 'read my own write, got stale'.",
+   prot:"Primary write capacity, without lying about the user's own writes.",
+   sol:"Two pools + AbstractRoutingDataSource keyed off readOnly; stale-read demo + fix.",
+   tech:["AbstractRoutingDataSource","@Transactional(readOnly)","route own-writes to primary / LSN"],
+   debt:"Every read path must be correctly annotated; read-your-writes leaks routing into the domain.", sev:"a"},
+  {n:"22",g:"scale",port:8222,db:"PG",name:"Table partitioning",
+   prob:"One giant table is slow to query & impossible to prune (delete-old = huge DELETE).",
+   prot:"Query cost on time-ranged data & cheap retention.",
+   sol:"RANGE (monthly, sliding-window) / LIST (region) / HASH (user_id); EXPLAIN proves pruning.",
+   tech:["declarative partitioning","DETACH + DROP","partition pruning"],
+   debt:"Key must be in the predicate or no pruning; unique constraints must include it; maintenance needs automation.", sev:"a"},
+  {n:"23",g:"scale",port:8223,db:"PG",name:"Sharding",
+   prob:"One node can't hold the writes; routing scheme's resharding cost differs 3×.",
+   prot:"Horizontal write capacity with bounded key-movement on resize.",
+   sol:"4 schemas; ShardRouter modulo (≈3/4 move) vs consistent hashing (≈1/N move); scatter-gather.",
+   tech:["hash % N","consistent-hash ring + vnodes","ExecutorService scatter-gather"],
+   debt:"No cross-shard txn/FK; shard key near-permanent; config must be byte-identical on every pod.", sev:"r"},
+  {n:"24",g:"scale",port:8224,db:"Citus",name:"Vitess / Citus",
+   prob:"App-level sharding pushes routing into your code; at scale you want the DB to own it.",
+   prot:"Distribution logic — moved out of the app into the DB layer.",
+   sol:"Real Citus coordinator + 2 workers; distributed / co-located / reference tables.",
+   tech:["create_distributed_table","co-located tables","reference table","coordinator routing"],
+   debt:"Distributed-cluster ops weight; distribution column as permanent as a shard key; 'when to graduate' judgement.", sev:"a"},
+
+  {n:"25",g:"readpath",port:8225,db:"PG+Redis",name:"Caching layers",
+   prob:"Repeated reads hammer the DB; on a cold key N concurrent requests all miss (stampede).",
+   prot:"DB read load & tail latency on hot keys.",
+   sol:"Hibernate L1, Caffeine (in-proc L2), Redis (shared L2); single-flight collapses stampede.",
+   tech:["Hibernate L1","Caffeine","Redis L2","single-flight (CompletableFuture)"],
+   debt:"In-process caches DIVERGE across pods → need Redis/pub-sub; invalidation is the hard problem.", sev:"r"},
+  {n:"26",g:"readpath",port:8226,db:"PG",name:"Materialized view",
+   prob:"Expensive aggregate recomputed every read; but a precomputed view goes stale on base change.",
+   prot:"Read latency on aggregate/report queries.",
+   sol:"Build MV, time vs live aggregate, mutate to show staleness, refresh blocking vs concurrent.",
+   tech:["MATERIALIZED VIEW","REFRESH CONCURRENTLY","trigger-maintained column"],
+   debt:"Staleness = refresh interval; who triggers it? CONCURRENTLY needs unique idx & is slower; runs on every pod.", sev:"a"},
+  {n:"27",g:"readpath",port:8227,db:"PG",name:"CQRS + outbox",
+   prob:"Splitting write/read models is easy; keeping in sync without losing writes is not (dual-write drops events).",
+   prot:"No lost events between models; a rebuildable read side.",
+   sol:"Write + outbox in ONE tx; SKIP LOCKED poller projects idempotently; /rebuild replays.",
+   tech:["transactional outbox","FOR UPDATE SKIP LOCKED poller","idempotent last_event_id","/rebuild"],
+   debt:"At-least-once not exactly-once (projection must be idempotent); outbox grows → needs retention.", sev:"g"},
+
+  {n:"28",g:"shape",port:8228,db:"PG",name:"JSONB",
+   prob:"'Put it all in JSON' trades schema safety for flexibility; then indexing paths is its own puzzle.",
+   prot:"Query performance & SOME integrity over semi-structured data.",
+   sol:"Normalized columns vs data jsonb; gin(data) vs jsonb_path_ops; functional path index; anti-pattern demo.",
+   tech:["jsonb","gin(data)","gin(jsonb_path_ops)","functional index on ->>"],
+   debt:"No schema/type/FK enforcement — integrity moves to the app; GIN indexes are large & write-costly.", sev:"g"},
+  {n:"29",g:"shape",port:8229,db:"PG",name:"Hybrid relational + document",
+   prob:"Pure relational is rigid; pure document loses joins/aggregation. Want both on one row.",
+   prot:"Indexed integrity (spine) + flexible extension (leaf), one datastore.",
+   sol:"Column spine (FK+B-tree) + jsonb leaf; spine indexed, leaf @> on GIN, report via LATERAL.",
+   tech:["column spine + B-tree/FK","jsonb leaf + GIN","LATERAL jsonb_array_elements"],
+   debt:"Two mental models on one table; LATERAL over big arrays is expensive; leaf lacks guarantees.", sev:"g"},
+  {n:"30",g:"shape",port:8230,db:"PG",name:"Multi-tenancy",
+   prob:"A forgotten WHERE tenant_id=? LEAKS another tenant's data — a security incident.",
+   prot:"Tenant isolation (confidentiality) & the cost/scale trade-off.",
+   sol:"Shared+RLS / schema-per-tenant / DB-per-tenant; breach endpoint proves RLS holds.",
+   tech:["Row-Level Security","per-request search_path","DB-per-tenant","/shared/breach demo"],
+   debt:"RLS easy to misconfigure + planner cost; context must be set per request/pod or isolation fails.", sev:"a"},
+];
+
+const SCALE = [
+  ["Connection pools","15–17","r","pool × pods; connection storm on HPA scale-up","Size by DB budget ÷ maxPods; put <code>PgBouncer</code> in front; cap HPA"],
+  ["Bulkhead semaphore","17","r","per-pod, not a global limit (N × permits)","DB-side <code>statement_timeout</code> / role for a true global cap"],
+  ["In-process cache","25","r","Caffeine diverges across pods → two answers","<code>Redis</code> shared L2; pub/sub invalidation"],
+  ["Scheduled refresh","26","r","<code>@Scheduled</code> runs on every pod → N× work","<code>ShedLock</code> / k8s CronJob / advisory-lock singleton"],
+  ["Outbox poller","27","g","<code>SKIP LOCKED</code> makes pods cooperate","Keep per-aggregate ordering"],
+  ["DB locking / @Version","10–13","g","DB-arbitrated — same across pods","Never use a JVM lock for a cross-pod mutex"],
+  ["Read replica","21","a","lag hits read-your-writes across pods","Route own-writes to primary; identical config on all pods"],
+  ["Sharding","23","r","config drift between pods = misroute → split-brain","Centralized, atomically-rolled topology config"],
+  ["Citus","24","a","coordinator owns topology (outside the app)","Graduate here when app-sharding config drift hurts"],
+  ["Migrations","18–20","r","rolling deploy runs 2 app versions at once","<b>Expand/contract</b>; run migration as a Job, not per-pod boot"],
+  ["CQRS / outbox","27","g","built for multi-instance","Serialize projection per aggregate"],
+  ["Multi-tenancy","30","a","context is per-request + pooled-conn reuse leaks","<code>SET LOCAL</code> in a tx; RLS; reset on connection return"],
+  ["ID generation","08","g","sequence hands each pod a distinct block","Never in-memory <code>AtomicLong</code> counters"],
+  ["Query / JPA basics","01–09","g","pod-count-neutral (but amplified)","Same fixes; higher stakes at fleet RPS"],
+];
+
+// ---- render modules ----
+const grid = document.getElementById('grid');
+const filters = document.getElementById('filters');
+const search = document.getElementById('search');
+let active = "all";
+
+const allBtn = document.createElement('div');
+allBtn.className='fbtn active'; allBtn.textContent='All'; allBtn.dataset.g='all';
+filters.appendChild(allBtn);
+GROUPS.forEach(([id,label])=>{
+  const b=document.createElement('div'); b.className='fbtn'; b.textContent=label; b.dataset.g=id;
+  filters.appendChild(b);
+});
+filters.addEventListener('click',e=>{
+  if(!e.target.dataset.g) return;
+  active=e.target.dataset.g;
+  [...filters.children].forEach(c=>c.classList.toggle('active',c===e.target));
+  render();
+});
+search.addEventListener('input',render);
+
+function chip(arr){return arr.map(t=>`<span class="tc">${t}</span>`).join('');}
+function card(m){
+  const gname=GROUPS.find(g=>g[0]===m.g)[1];
+  return `<div class="card">
+    <div class="sevbar sev-${m.sev==='g'?'green':m.sev==='a'?'amber':'red'}"></div>
+    <div class="top"><span class="num">${m.n}</span><h3>${m.name}</h3></div>
+    <div class="meta"><span class="tag port">:${m.port}</span><span class="tag">${m.db}</span><span class="tag">${gname}</span></div>
+    <div class="row prob"><b>Hard problem</b>${m.prob}</div>
+    <div class="row prot"><b>Protecting</b>${m.prot}</div>
+    <div class="row sol"><b>Solution shape</b>${m.sol}</div>
+    <div class="row"><b>Key tech</b><div class="techchips">${chip(m.tech)}</div></div>
+    <div class="row debt"><b>Tech debt</b>${m.debt}</div>
+  </div>`;
+}
+function render(){
+  const q=search.value.trim().toLowerCase();
+  const shown=M.filter(m=>{
+    if(active!=="all" && m.g!==active) return false;
+    if(!q) return true;
+    return JSON.stringify(m).toLowerCase().includes(q);
+  });
+  if(!shown.length){grid.innerHTML='<div class="empty">No patterns match.</div>';return;}
+  let html='',lastG=null;
+  shown.forEach(m=>{
+    if(m.g!==lastG && active==="all"){
+      const gname=GROUPS.find(g=>g[0]===m.g)[1];
+      html+=`<div class="grouphead"><h4>${gname}</h4><div class="ln"></div></div>`;
+      lastG=m.g;
+    }
+    html+=card(m);
+  });
+  grid.innerHTML=html;
+}
+render();
+
+// ---- render scaling matrix ----
+const mx=document.getElementById('mxbody');
+const pillClass={g:'g',a:'a',r:'r'};
+const pillTxt={g:'🟢 neutral',a:'🟡 care',r:'🔴 breaks'};
+mx.innerHTML=SCALE.map(([p,mods,sev,eff,fix])=>
+  `<tr><td><b>${p}</b></td><td><code>${mods}</code></td>
+   <td><span class="pill ${pillClass[sev]}">${pillTxt[sev]}</span> ${eff}</td>
+   <td>${fix}</td></tr>`).join('');
+</script>
+</body>
+</html>

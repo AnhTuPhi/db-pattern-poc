@@ -6,6 +6,20 @@ Each module is a runnable Spring Boot app focused on one pattern. The code is he
 
 ---
 
+## Documentation map
+
+Start here depending on what you need:
+
+| Doc | Read it when you want… |
+|---|---|
+| **[ISSUE.md](ISSUE.md)** | The problem statement — *why* this repo exists, the ten problem families, the stakes, scope, and definition of done. |
+| **[TECHNICAL.md](TECHNICAL.md)** | The per-module dissection — for each pattern: the hard problem, what it protects, the solution shape, key tech by responsibility, how it solves each sub-problem, and the **tech debt to acknowledge**. |
+| **[CONSISTENCY.md](CONSISTENCY.md)** | What horizontal scaling (k8s pods / VM fleet) does to each pattern — which ones are 🟢 pod-count-neutral, which are 🟡 need care, and which 🔴 silently break from 1 replica to N. |
+| **[docs/explainer.html](docs/explainer.html)** | An interactive, filterable visual walkthrough — the request/data flow, all 30 modules as cards, and the scaling-impact matrix. Open it in any browser (no server needed). |
+| **README.md** (this file) | How to build, the infra profiles, and per-module curl walkthroughs. |
+
+---
+
 ## TL;DR — start everything
 
 ```bash
